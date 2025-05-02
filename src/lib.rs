@@ -438,7 +438,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize>
                                     return Err(HeapError::OutOfMemory);
                                 }
 
-                                self.collect_gen_1(&blocks_used, &mut new_block_info, active_1, inactive_1)?;
+                                Self::collect_gen_1(&blocks_used, &mut new_block_info, active_1, inactive_1)?;
                                 gen_1_collected = true;
 
                                 
@@ -504,15 +504,14 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize>
     }
 
     fn collect_gen_1(
-        &mut self,
         blocks_used: &[bool; MAX_BLOCKS],
-        new_block_info: &mut BlockTable<MAX_BLOCKS>,
+        block_info: &mut BlockTable<MAX_BLOCKS>,
         src: &mut RamHeap<HEAP_SIZE>,
         dest: &mut RamHeap<HEAP_SIZE>,
     ) -> anyhow::Result<(), HeapError> {
         for (i, &in_use) in blocks_used.iter().enumerate() {
             if in_use {
-                if let Some(block) = &new_block_info[i] {
+                if let Some(block) = &block_info[i] {
                     if block.num_times_copied > MAX_COPIES {
                         let block_size = block.size;
                         let src_start = block.start;
@@ -523,7 +522,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize>
                             dest.store(dest_start + j, value)?;
                         }
 
-                        new_block_info[i] = Some(BlockInfo {
+                        block_info[i] = Some(BlockInfo {
                             start: dest_start,
                             size: block_size,
                             num_times_copied: block.num_times_copied + 1,
