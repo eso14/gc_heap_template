@@ -325,6 +325,9 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> GarbageCollectingHeap
         num_words: usize,
         tracer: &T,
     ) -> anyhow::Result<Pointer, HeapError> {
+        if num_words == 0{
+            return Err(HeapError::ZeroSizeRequest);
+        }
 
         let block_num = match self.block_info.available_block() {
             Some(b) => b,
@@ -339,7 +342,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> GarbageCollectingHeap
             Ok(s) => s,
             Err(HeapError::OutOfMemory) => {
                 self.collect(tracer)?;
-                self.heaps[self.active_heap].malloc(num_words)?
+                self.heaps[self.active_heap].malloc(num_words).map_err(|_| HeapError::OutOfMemory)?
             }
             Err(e) => return Err(e),
         };
@@ -474,7 +477,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize>
         }
 
    
-        self.block_info = new_block_info;
+        
 
 
         active_0.clear();
@@ -484,6 +487,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize>
         if gen_1_collected {
             self.active_gen_1 = (self.active_gen_1 + 1) % 2;
         }
+        self.block_info = new_block_info;
 
         Ok(())
 
@@ -624,13 +628,12 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize> G
     }
 
     let block_num = free_block_num.unwrap();
-    let (active_0, _, active_1, _) = self.active_inactive_gen_0_gen_1();
-
-    let addr = match active_0.malloc(num_words) {
+    
+    let addr = match self.gen_0[self.active_gen_0].malloc(num_words) {
         Ok(addr) => addr,
         Err(_) => {
             self.collect_gen_0(tracer)?;
-            active_0.malloc(num_words)?
+            self.gen_0[self.active_gen_0].malloc(num_words)?
         }
     };
 
