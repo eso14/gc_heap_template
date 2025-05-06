@@ -232,40 +232,30 @@ pub struct CopyingHeap<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> {
 
 impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> CopyingHeap<HEAP_SIZE, MAX_BLOCKS> {
     fn collect<T: Tracer>(&mut self, tracer: &T) -> anyhow::Result<(), HeapError> {
-          // These lines are helpful for avoiding borrow checker problems with arrays.
+          
           let inactive = (self.active_heap + 1) % 2;
           let (src, dest) =
               independent_elements_from(self.active_heap, inactive, &mut self.heaps).unwrap();
         let mut blocks_used = [false; MAX_BLOCKS];
         tracer.trace(&mut blocks_used);
 
-        
+        let mut new_block_info = [None; MAX_BLOCKS];
+
         for (i, &in_use) in blocks_used.iter().enumerate() {
             if in_use {
-                if let Some(block_info) = &self.block_info[i] {        
-                    let block_size = block_info.size;
-                    let src_start = block_info.start;
-                    let dest_start = dest.malloc(block_size)?;
-
-                    for j in 0..block_size {
-                        let value = src.load(src_start + j)?;
-                        dest.store(dest_start + j, value)?;
-                    }
-
-                    self.block_info[i] = Some(BlockInfo {
-                        start: dest_start,
-                        size: block_size,
-                        num_times_copied: block_info.num_times_copied + 1,
-                    });
+                if let Some(block) = &self.block_info[i] {
+                    let copied = src.copy(block, dest)?;
+                    new_block_info[i] = Some(copied);
                 }
             }
         }
 
-
+    
         for block in src.heap.iter_mut() {
             *block = 0; 
         }
 
+        self.block_info.block_info = new_block_info;
         self.active_heap = inactive;
 
         Ok(())
@@ -433,7 +423,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize>
                     let block_size = block.size;
                     let src_start = block.start;
 
-                    if block.num_times_copied >= MAX_COPIES {
+                    if block.num_times_copied == MAX_COPIES {
                         let dest_start = match active_1.malloc(block_size) {
                             Ok(addr) => addr,
                             Err(_) => {
