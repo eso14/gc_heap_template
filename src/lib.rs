@@ -115,14 +115,14 @@ impl<const HEAP_SIZE: usize> RamHeap<HEAP_SIZE> {
 
     fn load(&self, address: usize) -> anyhow::Result<u64, HeapError> {
         
-        if address >= HEAP_SIZE {
+        if address >= self.next_address {
             return Err(HeapError::IllegalAddress(address, HEAP_SIZE - 1));
         }
         Ok(self.heap[address])
     }
 
     fn store(&mut self, address: usize, value: u64) -> anyhow::Result<(), HeapError> {
-        if address >= HEAP_SIZE {
+        if address >= self.next_address {
             return Err(HeapError::IllegalAddress(address, HEAP_SIZE - 1));
         }
         self.heap[address] = value;
@@ -255,6 +255,8 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> CopyingHeap<HEAP_SIZE, MAX
             *block = 0; 
         }
 
+        src.clear();
+
         self.block_info.block_info = new_block_info;
         self.active_heap = inactive;
 
@@ -287,6 +289,8 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> GarbageCollectingHeap
     }
 
     fn load(&self, p: Pointer) -> anyhow::Result<u64, HeapError> {
+        
+        
         self.block_info
             .address(p)
             .and_then(|address| self.heaps[self.active_heap].load(address))
