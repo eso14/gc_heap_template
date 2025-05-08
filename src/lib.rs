@@ -74,7 +74,7 @@ impl<const MAX_BLOCKS: usize> BlockTable<MAX_BLOCKS> {
             Some(info) => {
 
                 if offset >= info.size {
-                    return Err(HeapError::OffsetTooBig(offset, info.size, block_num));
+                    return Err(HeapError::OffsetTooBig(offset, block_num ,info.size ));
                 }
                
                 if p.len() != info.size { 
@@ -116,14 +116,14 @@ impl<const HEAP_SIZE: usize> RamHeap<HEAP_SIZE> {
     fn load(&self, address: usize) -> anyhow::Result<u64, HeapError> {
         
         if address >= self.next_address {
-            return Err(HeapError::IllegalAddress(address, HEAP_SIZE - 1));
+            return Err(HeapError::IllegalAddress(address, self.next_address));
         }
         Ok(self.heap[address])
     }
 
     fn store(&mut self, address: usize, value: u64) -> anyhow::Result<(), HeapError> {
         if address >= self.next_address {
-            return Err(HeapError::IllegalAddress(address, HEAP_SIZE - 1));
+            return Err(HeapError::IllegalAddress(address, self.next_address));
         }
         self.heap[address] = value;
         Ok(())
