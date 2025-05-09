@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = { version = "1.0", default-features = false }
 gc_headers = {git = "https://github.com/gjf2a/gc_headers"}
 
 [dev-dependencies]

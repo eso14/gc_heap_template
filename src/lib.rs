@@ -1,6 +1,7 @@
 #![cfg_attr(not(test), no_std)]
 
 use core::ops::{Index, IndexMut};
+use core::result::Result;
 
 use gc_headers::{GarbageCollectingHeap, HeapError, Pointer, Tracer};
 
@@ -62,7 +63,7 @@ impl<const MAX_BLOCKS: usize> BlockTable<MAX_BLOCKS> {
             .map(|b| (b, self.block_info[b].unwrap().num_times_copied))
     }
 
-    fn address(&self, p: Pointer) -> anyhow::Result<usize, HeapError> {
+    fn address(&self, p: Pointer) -> Result<usize, HeapError> {
         let block_num = p.block_num();
         let offset = p.offset();
 
@@ -113,7 +114,7 @@ impl<const HEAP_SIZE: usize> RamHeap<HEAP_SIZE> {
         self.next_address = 0;
     }
 
-    fn load(&self, address: usize) -> anyhow::Result<u64, HeapError> {
+    fn load(&self, address: usize) -> Result<u64, HeapError> {
         
         if address >= self.next_address {
             return Err(HeapError::IllegalAddress(address, self.next_address));
@@ -121,7 +122,7 @@ impl<const HEAP_SIZE: usize> RamHeap<HEAP_SIZE> {
         Ok(self.heap[address])
     }
 
-    fn store(&mut self, address: usize, value: u64) -> anyhow::Result<(), HeapError> {
+    fn store(&mut self, address: usize, value: u64) ->Result<(), HeapError> {
         if address >= self.next_address {
             return Err(HeapError::IllegalAddress(address, self.next_address));
         }
@@ -129,7 +130,7 @@ impl<const HEAP_SIZE: usize> RamHeap<HEAP_SIZE> {
         Ok(())
     }
 
-    fn malloc(&mut self, num_words: usize) -> anyhow::Result<usize, HeapError> {
+    fn malloc(&mut self, num_words: usize) -> Result<usize, HeapError> {
         if num_words == 0 {
             return Err(HeapError::ZeroSizeRequest);
         }
@@ -146,7 +147,7 @@ impl<const HEAP_SIZE: usize> RamHeap<HEAP_SIZE> {
         
     }
 
-    fn copy(&self, src: &BlockInfo, dest: &mut Self) -> anyhow::Result<BlockInfo, HeapError> {
+    fn copy(&self, src: &BlockInfo, dest: &mut Self) -> Result<BlockInfo, HeapError> {
         let new_start = dest.malloc(src.size)?;
 
     for i in 0..src.size {
@@ -178,17 +179,17 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> GarbageCollectingHeap
         }
     }
 
-    fn address(&self, p: Pointer) -> anyhow::Result<usize, HeapError> {
+    fn address(&self, p: Pointer) -> Result<usize, HeapError> {
         self.block_info.address(p)
     }
 
-    fn load(&self, p: Pointer) -> anyhow::Result<u64, HeapError> {
+    fn load(&self, p: Pointer) -> Result<u64, HeapError> {
         self.block_info
             .address(p)
             .and_then(|address| self.heap.load(address))
     }
 
-    fn store(&mut self, p: Pointer, value: u64) -> anyhow::Result<(), HeapError> {
+    fn store(&mut self, p: Pointer, value: u64) -> Result<(), HeapError> {
         self.block_info
             .address(p)
             .and_then(|address| self.heap.store(address, value))
@@ -206,7 +207,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> GarbageCollectingHeap
         self.block_info.blocks_num_copies()
     }
 
-    fn malloc<T: Tracer>(&mut self, num_words: usize, _: &T) -> anyhow::Result<Pointer, HeapError> {
+    fn malloc<T: Tracer>(&mut self, num_words: usize, _: &T) -> Result<Pointer, HeapError> {
         match self.block_info.available_block() {
             Some(block_num) => {
                 let start = self.heap.malloc(num_words)?;
@@ -231,7 +232,7 @@ pub struct CopyingHeap<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> {
 }
 
 impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> CopyingHeap<HEAP_SIZE, MAX_BLOCKS> {
-    fn collect<T: Tracer>(&mut self, tracer: &T) -> anyhow::Result<(), HeapError> {
+    fn collect<T: Tracer>(&mut self, tracer: &T) -> Result<(), HeapError> {
           
           let inactive = (self.active_heap + 1) % 2;
           let (src, dest) =
@@ -284,11 +285,11 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> GarbageCollectingHeap
         }
     }
 
-    fn address(&self, p: Pointer) -> anyhow::Result<usize, HeapError> {
+    fn address(&self, p: Pointer) -> Result<usize, HeapError> {
         self.block_info.address(p)
     }
 
-    fn load(&self, p: Pointer) -> anyhow::Result<u64, HeapError> {
+    fn load(&self, p: Pointer) -> Result<u64, HeapError> {
         
         
         self.block_info
@@ -296,7 +297,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> GarbageCollectingHeap
             .and_then(|address| self.heaps[self.active_heap].load(address))
     }
 
-    fn store(&mut self, p: Pointer, value: u64) -> anyhow::Result<(), HeapError> {
+    fn store(&mut self, p: Pointer, value: u64) -> Result<(), HeapError> {
         self.block_info
             .address(p)
             .and_then(|address| self.heaps[self.active_heap].store(address, value))
@@ -318,7 +319,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize> GarbageCollectingHeap
         &mut self,
         num_words: usize,
         tracer: &T,
-    ) -> anyhow::Result<Pointer, HeapError> {
+    ) -> Result<Pointer, HeapError> {
         if num_words == 0{
             return Err(HeapError::ZeroSizeRequest);
         }
@@ -394,7 +395,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize>
             inactive_1,
         )
     }
-    fn heap_and_gen_for(&self, block_num: usize) -> anyhow::Result<(usize, usize), HeapError> {
+    fn heap_and_gen_for(&self, block_num: usize) -> Result<(usize, usize), HeapError> {
         if block_num >= MAX_BLOCKS {
             Err(HeapError::IllegalBlock(block_num, MAX_BLOCKS - 1))
         } else {
@@ -409,7 +410,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize>
         }
     }
 
-    fn collect_gen_0<T: Tracer>(&mut self, tracer: &T) -> anyhow::Result<(), HeapError> {
+    fn collect_gen_0<T: Tracer>(&mut self, tracer: &T) -> Result<(), HeapError> {
         let mut new_block_info = self.block_info.clone();
 
   
@@ -506,7 +507,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize>
         block_info: &mut BlockTable<MAX_BLOCKS>,
         src: &mut RamHeap<HEAP_SIZE>,
         dest: &mut RamHeap<HEAP_SIZE>,
-    ) -> anyhow::Result<(), HeapError> {
+    ) -> Result<(), HeapError> {
         for (i, &in_use) in blocks_used.iter().enumerate() {
             if in_use {
                 if let Some(block) = &block_info[i] {
@@ -556,7 +557,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize> G
         }
     }
 
-    fn load(&self, p: Pointer) -> anyhow::Result<u64, HeapError> {
+    fn load(&self, p: Pointer) -> Result<u64, HeapError> {
         let (heap, gen) = self.heap_and_gen_for(p.block_num())?;
         let address = self.block_info.address(p)?;
         (if gen == 0 {
@@ -567,7 +568,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize> G
         .load(address)
     }
 
-    fn store(&mut self, p: Pointer, value: u64) -> anyhow::Result<(), HeapError> {
+    fn store(&mut self, p: Pointer, value: u64) -> Result<(), HeapError> {
         let (heap, gen) = self.heap_and_gen_for(p.block_num())?;
         let address = self.block_info.address(p)?;
         (if gen == 0 {
@@ -578,7 +579,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize> G
         .store(address, value)
     }
 
-    fn address(&self, p: Pointer) -> anyhow::Result<usize, HeapError> {
+    fn address(&self, p: Pointer) -> Result<usize, HeapError> {
         self.block_info.address(p)
     }
 
@@ -598,7 +599,7 @@ impl<const HEAP_SIZE: usize, const MAX_BLOCKS: usize, const MAX_COPIES: usize> G
         &mut self,
         num_words: usize,
         tracer: &T,
-    ) -> anyhow::Result<Pointer, HeapError> {
+    ) -> Result<Pointer, HeapError> {
         let mut free_block_num = None;
 
     for i in 0..MAX_BLOCKS {
